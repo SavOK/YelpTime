@@ -33,7 +33,7 @@ class YelpAuth:
 
 
 class YelpAPI:
-    _search_url = "https://api.yelpA.com/v3/businesses/search"
+    _search_url = "https://api.yelp.com/v3/businesses/search"
 
     def __init__(self, DATA_LOC=Path(config.DATA_LOC), radius: int = 250):
         self._data_loc = DATA_LOC
@@ -53,23 +53,29 @@ class YelpAPI:
         cat = (el["alias"] for el in data if len(el["parents"]) == 0)
         return ",".join(cat)
 
-    def _set_param(
+    def _set_params(
         self,
         latitude: float,
         longditude: float,
         radius: int = None,
         categories: str = None,
+        limit: int = 50,
+        offset: int = None,
     ) -> Dict:
         if radius is None:
             radius = self.default_radius
         if categories is None:
             categories = self._get_categories()
-        return {
+        out_dict = {
             "latitude": latitude,
             "longitude": longditude,
             "radius": radius,
-            "categories": ",".join(categories),
+            "categories": categories,
+            "limit": limit,
         }
+        if offset is not None:
+            out_dict.update({"offset": offset})
+        return out_dict
 
     def get_request(
         self,
@@ -77,13 +83,18 @@ class YelpAPI:
         longditude: float,
         radius: int = None,
         categories: str = None,
+        limit: int = 50,
+        offset: int = None,
     ):
         YA = YelpAuth()
         header = {"Authorization": "bearer {}".format(YA.get_key())}
-        params = self._set_param(
+        params = self._set_params(
             latitude=latitude,
             longditude=longditude,
             radius=radius,
             categories=categories,
+            limit=limit,
+            offset=offset,
         )
-        r = requests.get(url=self._search_url, parmas=params, header=header)
+        r = requests.get(url=self._search_url, params=params, headers=header)
+        return r

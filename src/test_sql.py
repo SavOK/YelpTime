@@ -1,61 +1,104 @@
 from pathlib import Path
 import json
+from typing import Dict
 
-from sqlalchemy import create_engine
-from sqlalchemy.engine.url import URL
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import NullPool
+from geoalchemy2 import Geometry
+import geoalchemy2.functions as GeoFun
 
-from sqlalchemy import (
-    Column,
-    Date,
-    PrimaryKeyConstraint,
-    Sequence,
-    ForeignKeyConstraint,
-)
-from sqlalchemy.dialects import postgresql as psql
-import config
-import sys
+from SQL import Base, Session, engine
+from SQL import Business, Category, Location
+
+from APIs import YelpAPI
+
+# r = Y.get_request(test_point[0], test_point[1])
 
 
-def _get_sql_param(PROJECT_LOC: Path = Path(config.PROJECT_LOC), ENV: str = config.ENV):
-    file_loc = PROJECT_LOC / ".configs"
-    file_path = file_loc / "postgres.json"
-    if not file_path.is_file():
-        raise FileNotFoundError(
-            "PostgreSQL sitting file: {} not ther".format(file_path)
+def get_all_business_around_point(
+    latitude: float, longitude: float, Y: YelpAPI = None
+) -> Dict:
+    if Y is None:
+        Y = YelpAPI()
+    # first run
+    r = Y.get_request(latitude, longitude)
+    if r.status_code != 200:
+        print(
+            f"at point {latitude} {longitude} offset 1 requests broke code {r.status_code}"
         )
-    with open(file_path) as oF:
-        D = json.load(oF)
-    if ENV not in D:
-        raise KeyError(f"Enviroment {ENV} not set in {file_path}")
-    return D[ENV]
+        raise
+    data = r.json()
+    total = data["total"]
+    read = len(data["businesses"])
+    # next runs
+    while read < total:
+        r = YelpAPI.get_request(latitude, longitude, offset=(read + 1))
+        if r.status_code != 200:
+            print(
+                f"at point {latitude} {longitude} requests broke code {r.status_code}"
+            )
+            raise
+        curr_data = r.json()
+        data["businesses"] += curr_data["businesses"]
+        read = len(data["business"])
+    return data
 
 
-d = _get_sql_param()
+# in_data = get_all_business_around_point(*test_point)
 
-url = URL(**d)
+# with open("/home/ubuntu/YelpTime/test.json", "w") as oF:
+#     json.dump(in_data, oF, indent=2)
 
-engine = create_engine(url, poolclass=NullPool)
-Session = sessionmaker(bind=engine)
-
-Base = declarative_base()
-
-class testtable(Base):
-    __tablename__ = "test_table"
-    uniprot_id = Column(psql.TEXT, nullable=False, quote=False, name="uniprot_id")
-    pfam_id = Column(psql.TEXT, nullable=False, quote=False, name="pfam_id")
-    __table_args__ = (
-        PrimaryKeyConstraint(
-            "uniprot_id", "pfam_id", name="pk_uniprot_pfam_map"
-        ),
-    )
-
-    def __init__(self, uniprot_id: str, pfam_id: str):
-        self.uniprot_id = uniprot_id
-        self.pfam_id = pfam_id
-
+with open("/home/ubuntu/YelpTime/test.json") as oF:
+    in_data = json.load(oF)
 
 Base.metadata.create_all(engine)
-T = testtable("AAA", "BBB")
+
+s = Session()
+# t1 = in_data["businesses"][4]
+# P1 = Location(
+#     location="POINT({} {})".format(
+#         t1["coordinates"]["latitude"], t1["coordinates"]["longitude"]
+#     )
+# )
+# t2 = in_data["businesses"][5]
+# P2 = Location(
+#     location="POINT({} {})".format(
+#         t2["coordinates"]["latitude"], t2["coordinates"]["longitude"]
+#     )
+# )
+# P3 = Location(location="POINT({} {})".format(test_point[0], test_point[1]))
+for D in in_data["businesses"]:
+    buisness = Business(D)
+    buisness, isNewBus = buisness.get_or_create(s)
+    for A in D["categories"]:
+        category = Category(entry=A)
+        category, isNewCat = category.get_or_create(s)
+        buisness.categories.append(category)
+    location = Location(D["coordinates"]["latitude"], D["coordinates"]["longitude"])
+    location, isNewLoc = location.get_or_create(s)
+    buisness.location = location
+    s.commit()
+
+
+# def object_as_dict(obj):
+#     return {c.key: getattr(obj, c.key) for c in inspect(obj).mapper.column_attrs}
+
+
+# q = s.query(Location.id).filter(
+#     GeoFun.ST_Equals(
+#         Location.location, "POINT({} {})".format(test_point[0], test_point[1]),
+#     )
+# )
+# # q = q.join(Business).limit(10)
+# for r in q:
+#     print(r)
+
+# c = s.connection()
+# stmt = text(
+#     "SELECT bis.*, loc.* FROM businesses AS bis "
+#     " JOIN locations AS loc "
+#     " ON loc.id = bis.location_id"
+#     " ORDER BY loc.location <#> ST_GeomFromEWKT('POINT(42.4030303030303 -71.05151515151516)') LIMIT 10"
+# )
+# r = c.execute(stmt)
+
+s.close()
