@@ -33,7 +33,7 @@ class Business(Base):
     display_phone = Column(psql.TEXT, nullable=True, quote=False, name="display_phone")
     image_url = Column(psql.TEXT, nullable=True, quote=False, name="image_url")
     is_closed = Column(psql.BOOLEAN, nullable=True, quote=False, name="is_closed")
-    address1 = Column(psql.TEXT, nullable=False, quote=False, name="address1")
+    address1 = Column(psql.TEXT, nullable=True, quote=False, name="address1")
     address2 = Column(psql.TEXT, nullable=True, quote=False, name="address2")
     address3 = Column(psql.TEXT, nullable=True, quote=False, name="address3")
     city = Column(psql.TEXT, nullable=False, quote=False, name="city")
@@ -66,7 +66,12 @@ class Business(Base):
         self.display_phone = entry["display_phone"]
         self.image_url = entry["image_url"]
         self.is_closed = entry["is_closed"]
-        self.address1 = entry["location"]["address1"]
+        if entry["location"]["address1"] is None:
+            self.address1 = None
+        elif len(entry["location"]["address1"]) == 0:
+            self.address1 = None
+        else:
+            self.address1 = entry["location"]["address1"]
         if entry["location"]["address2"] is None:
             self.address2 = None
         elif len(entry["location"]["address2"]) == 0:

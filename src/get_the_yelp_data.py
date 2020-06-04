@@ -1,6 +1,7 @@
 import json
 import itertools as itts
 from pathlib import Path
+import time
 from typing import Dict
 
 import numpy as np
@@ -42,27 +43,39 @@ def get_all_business_around_point(
         print(
             f"at point {latitude} {longitude} offset 1 requests broke code {r.status_code}"
         )
-        raise
+        return 
     data = r.json()
     total = data["total"]
     read = len(data["businesses"])
     # next runs
     while read < total:
-        r = YelpAPI.get_request(latitude, longitude, offset=(read + 1))
+        r = Y.get_request(latitude, longitude, offset=read)
         if r.status_code != 200:
             print(
                 f"at point {latitude} {longitude} requests broke code {r.status_code}"
             )
-            raise
+            break
         curr_data = r.json()
         data["businesses"] += curr_data["businesses"]
-        read = len(data["business"])
+        read = len(data["businesses"])
+        if read >= 950:
+            r = Y.get_request(latitude, longitude, offset=read, limit=1000 - read)
+            if r.status_code != 200:
+                print(
+                    f"at point {latitude} {longitude} requests broke code {r.status_code}"
+                )
+                break
+            curr_data = r.json()
+            data["businesses"] += curr_data["businesses"]
+            break
     return data
 
 
 def add_data_to_table(in_data: Dict):
     s = Session()
     for D in in_data["businesses"]:
+        if D["coordinates"]["latitude"] is None:
+            continue
         buisness = Business(D)
         buisness, isNewBus = buisness.get_or_create(s)
         for A in D["categories"]:
@@ -80,11 +93,17 @@ if __name__ == "__main__":
     Y = YelpAPI()
     Base.metadata.create_all(engine)
     box = generate_box()
-    for ix, latitude in enumerate(box["S_TO_N"]):
+    for ix, latitude in enumerate(box["S_TO_N"][15:], start=15):
         for iy, longitude in enumerate(box["E_TO_W"]):
             print(f"proccesing point {ix} {iy} {latitude} {longitude}")
             data = get_all_business_around_point(latitude, longitude, Y)
+            if data is None:
+                time.sleep(3)
+                continue
+            if data["total"] == 0:
+                time.sleep(1)
             add_data_to_table(data)
             print(
                 f"Done proccesing point {ix} {iy} {data['total']} {len(data['businesses'])}"
             )
+        time.sleep(10)
