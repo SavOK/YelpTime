@@ -15,6 +15,7 @@ Run API search query to get list of businesses around point
 	* Brute force didn't worked need to limit extraction by category
 	* The distance yelp returns  is aproxmate number of busnesses for each point  not equaly spreaded.
 	* **TODO**  Modifie queries so get businesses by category 
+	
 Build SQL wrapper to store data in PostgreSQL
 * SQL Alchemy wrapper to interact with psql
 * **TODO**  include tables shema in description
