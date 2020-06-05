@@ -13,8 +13,9 @@ Run API search query to get a list of businesses around the point
 * find all business around a point within 250m
 * *Problems*: 
 	* Brute force didn't work need to limit extraction by category
-	* The distance yelp returns is an approximate number of businesses for each point not equally spread.
-	* **TODO**  Modify queries so get businesses by category    
+	* The distance yelp returns is approximation, number of businesses for each point varies from 0 to 4000.
+	* **TODO** Solve an query limit to 1000. 
+	* **TODO** Modify queries so get businesses by category    
 
 Build SQL wrapper to store data in PostgreSQL
 * SQL Alchemy wrapper to interact with psql
