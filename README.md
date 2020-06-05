@@ -4,7 +4,6 @@
 Insight Data Engineering Project  
 
 **IMPORTANT** Before doing anything need to setup `config.py`
-## Step 1: Get the data to connect to API  
 
 ### Yelp data: get the list of business in Boston  
 
