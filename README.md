@@ -19,11 +19,13 @@ Build SQL wrapper to store data in PostgreSQL
 * SQL Alchemy wrapper to interact with psql
 * **TODO**  include tables shema in description
 * Store location data in PostGIS
-* **TODO** gist index locations
 
 ### Get distance information from [here.com](https://developer.here.com/)  
-Run API to get POLYGON around the point of interest that could be reached in a time limit
-
+Run API to get POLYGON around the point of interest that could be reached in a time limit  
 Based on POLYGON get locations that are inside the polygon and of the type `pizza` (for now)  
 Run API to get the time and real road distance to the locations
-Sort businesses based on the estimated time to reach
+Sort businesses based on the estimated time to reach  
+**TODO** make location type an option
+
+### Make Dash interactive web app
+### Scale
