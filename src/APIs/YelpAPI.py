@@ -38,7 +38,6 @@ class YelpAPI:
     def __init__(self, DATA_LOC=Path(config.DATA_LOC), radius: int = 250):
         self._data_loc = DATA_LOC
         self.default_radius = radius
-        super().__init__()
 
     def _get_categories(self, DATA_LOC: Path = None) -> str:
         if DATA_LOC is None:

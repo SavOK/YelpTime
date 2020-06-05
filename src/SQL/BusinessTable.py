@@ -45,6 +45,7 @@ class Business(Base):
     )
     name = Column(psql.TEXT, nullable=False, quote=False, name="name")
     price = Column(psql.TEXT, nullable=True, quote=False, name="price")
+    # rating = Column(psql.TEXT, nullable=True, quote=False, name="rating")
     review_counts = Column(
         psql.INTEGER, nullable=False, quote=False, name="review_counts", default=0
     )

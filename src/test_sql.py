@@ -30,7 +30,8 @@ def get_all_business_around_point(
     read = len(data["businesses"])
     # next runs
     while read < total:
-        r = YelpAPI.get_request(latitude, longitude, offset=(read + 1))
+        print(f"{read}, {total}")
+        r = Y.get_request(latitude, longitude, offset=read)
         if r.status_code != 200:
             print(
                 f"at point {latitude} {longitude} requests broke code {r.status_code}"
@@ -38,11 +39,22 @@ def get_all_business_around_point(
             raise
         curr_data = r.json()
         data["businesses"] += curr_data["businesses"]
-        read = len(data["business"])
+        read = len(data["businesses"])
+        if read >= 950:
+            r = Y.get_request(latitude, longitude, offset=read, limit=1000 - read - 1)
+            if r.status_code != 200:
+                print(
+                    f"at point {latitude} {longitude} requests broke code {r.status_code}"
+                )
+                raise
+            curr_data = r.json()
+            data["businesses"] += curr_data["businesses"]
+            break
     return data
 
 
-# in_data = get_all_business_around_point(*test_point)
+test_point = (42.3, -70.9060606060606)
+in_data = get_all_business_around_point(*test_point)
 
 # with open("/home/ubuntu/YelpTime/test.json", "w") as oF:
 #     json.dump(in_data, oF, indent=2)

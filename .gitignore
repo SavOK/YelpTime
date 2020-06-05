@@ -135,6 +135,7 @@ dmypy.json
 
 # api_keys and credential
 .configs/yelp.api
+.configs/here.api
 
 # postgres settings
 .configs/postgres.json 
