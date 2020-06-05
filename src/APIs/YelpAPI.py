@@ -3,7 +3,7 @@
 """
 from pathlib import Path
 import json
-from typing import Dict
+from typing import Dict, List
 
 import requests
 
@@ -51,6 +51,19 @@ class YelpAPI:
             data = json.load(oF)
         cat = (el["alias"] for el in data if len(el["parents"]) == 0)
         return ",".join(cat)
+    
+    def list_of_categories(self, DATA_LOC: Path = None) -> List:
+        if DATA_LOC is None:
+            DATA_LOC = self._data_loc
+        category_file = DATA_LOC / "categories.json"
+        if not category_file.is_file():
+            raise FileNotFoundError(
+                "Yelp category file: {} not there".format(category_file)
+            )
+        with open(category_file) as oF:
+            data = json.load(oF)
+        return sorted(el["alias"] for el in data if len(el["parents"]) == 0)
+
 
     def _set_params(
         self,

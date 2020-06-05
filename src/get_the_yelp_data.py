@@ -1,12 +1,13 @@
 import json
+import sys
 import itertools as itts
+
 from pathlib import Path
+from pprint import pprint
 import time
-from typing import Dict
+from typing import Dict, List
 
 import numpy as np
-from pathlib import Path
-import json
 
 from SQL import Base, Session, engine
 from SQL import Business, Category, Location
@@ -32,42 +33,100 @@ def generate_box():
     return box
 
 
+def get_requests_around_point_for_sub_category(
+    latitude, longitude, Y: YelpAPI, category: List
+):
+    r = Y.get_request(latitude, longitude, categories=",".join(category))
+    if r.status_code != 200:
+        err_msg = json.dumps(r.json(), indent=1)
+        pprint(f"SOMETHING WRONG {latitude} {longitude} {r.status_code}", sys.stderr)
+        pprint(err_msg, sys.stderr)
+        return
+    D = r.json()
+    read = len(D["businesses"])
+    total = D["total"]
+    while read < total:
+        time.sleep(1)
+        if (1000 - read) >= 50:
+            r = Y.get_request(
+                latitude, longitude, categories=",".join(category), offset=read
+            )
+            if r.status_code != 200:
+                err_msg = json.dumps(r.json(), indent=1)
+                pprint(
+                    f"SOMETHING WRONG {latitude} {longitude} {r.status_code}",
+                    sys.stderr,
+                )
+                pprint(f"offset {read}", sys.stderr)
+                pprint(err_msg, sys.stderr)
+                return D
+        else:
+            r = Y.get_request(
+                latitude,
+                longitude,
+                categories=",".join(category),
+                offset=read,
+                limit=(1000 - read),
+            )
+            if r.status_code != 200:
+                err_msg = json.dumps(r.json(), indent=1)
+                pprint(
+                    f"SOMETHING WRONG {latitude} {longitude} {r.status_code}",
+                    sys.stderr,
+                )
+                pprint(f"offset {read} limit {1000-read}", sys.stderr)
+                pprint(err_msg, sys.stderr)
+                return D
+        curr_data = r.json()
+        D["businesses"] += curr_data["businesses"]
+        read = len(D["businesses"])
+    return D
+
+
 def get_all_business_around_point(
     latitude: float, longitude: float, Y: YelpAPI = None
 ) -> Dict:
     if Y is None:
         Y = YelpAPI()
     # first run
+    time.sleep(1)
     r = Y.get_request(latitude, longitude)
     if r.status_code != 200:
-        print(
-            f"at point {latitude} {longitude} offset 1 requests broke code {r.status_code}"
-        )
-        return 
+        err_msg = json.dumps(r.json(), indent=1)
+        pprint(f"SOMETHING WRONG {latitude} {longitude} {r.status_code}", sys.stderr)
+        pprint(err_msg, sys.stderr)
+    if r.status_code == 429:
+        sys.exit()
+
     data = r.json()
     total = data["total"]
     read = len(data["businesses"])
-    # next runs
-    while read < total:
-        r = Y.get_request(latitude, longitude, offset=read)
-        if r.status_code != 200:
-            print(
-                f"at point {latitude} {longitude} requests broke code {r.status_code}"
+    all_categories = Y.list_of_categories()
+    if read == total:
+        return data
+    elif total >= 1000:
+        if total > 1500:
+            categories_chunks = [
+                all_categories[i : i + 1] for i in range(0, len(all_categories), 1)
+            ]
+        else:
+            categories_chunks = [
+                all_categories[i : i + 4] for i in range(0, len(all_categories), 4)
+            ]
+        for categ in categories_chunks:
+            curr_data = get_requests_around_point_for_sub_category(
+                latitude, longitude, Y, categ
             )
-            break
-        curr_data = r.json()
-        data["businesses"] += curr_data["businesses"]
-        read = len(data["businesses"])
-        if read >= 950:
-            r = Y.get_request(latitude, longitude, offset=read, limit=1000 - read)
-            if r.status_code != 200:
-                print(
-                    f"at point {latitude} {longitude} requests broke code {r.status_code}"
-                )
-                break
-            curr_data = r.json()
+            if curr_data is None:
+                continue
             data["businesses"] += curr_data["businesses"]
-            break
+    else:
+        curr_data = get_requests_around_point_for_sub_category(
+            latitude, longitude, Y, all_categories
+        )
+        if curr_data is None:
+            return data
+        data["businesses"] += curr_data["businesses"]
     return data
 
 
@@ -93,17 +152,18 @@ if __name__ == "__main__":
     Y = YelpAPI()
     Base.metadata.create_all(engine)
     box = generate_box()
-    for ix, latitude in enumerate(box["S_TO_N"][15:], start=15):
+    # test_point = (42.348484848484844, -71.15151515151516)
+    for ix, latitude in enumerate(box["S_TO_N"][3:10], start=3):
         for iy, longitude in enumerate(box["E_TO_W"]):
             print(f"proccesing point {ix} {iy} {latitude} {longitude}")
             data = get_all_business_around_point(latitude, longitude, Y)
             if data is None:
-                time.sleep(3)
                 continue
             if data["total"] == 0:
                 time.sleep(1)
+                print("Done 0 out of 0")
+                continue
             add_data_to_table(data)
             print(
-                f"Done proccesing point {ix} {iy} {data['total']} {len(data['businesses'])}"
+                f"Done {len(set(x['id'] for x in data['businesses']))} out of {data['total']}"
             )
-        time.sleep(10)
