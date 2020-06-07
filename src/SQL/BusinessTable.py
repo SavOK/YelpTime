@@ -47,9 +47,10 @@ class Business(Base):
     price = Column(psql.TEXT, nullable=True, quote=False, name="price")
     rating = Column(psql.TEXT, nullable=True, quote=False, name="rating")
     review_counts = Column(
-        psql.INTEGER, nullable=False, quote=False, name="review_counts", default=0
+        psql.INTEGER, nullable=True, quote=False, name="review_counts", default=0
     )
-    url = Column(psql.TEXT, nullable=False, quote=False, name="url")
+    url = Column(psql.TEXT, nullable=True, quote=False, name="url")
+    source_db = Column(psql.TEXT, nullable=True, quote=False, name="source_db")
 
     __table_args__ = (PrimaryKeyConstraint("id", name="pk_businesses"),)
 
@@ -64,9 +65,18 @@ class Business(Base):
         self.business_alias = entry["alias"]
         self.latitude = float(entry["coordinates"]["latitude"])
         self.longitude = float(entry["coordinates"]["longitude"])
-        self.display_phone = entry["display_phone"]
-        self.image_url = entry["image_url"]
-        self.is_closed = entry["is_closed"]
+        if "display_phone" in entry:
+            self.display_phone = entry["display_phone"]
+        else:
+            self.display_phone = None
+        if "image_url" in entry:
+            self.image_url = entry["image_url"]
+        else:
+            self.image_url = None
+        if "is_closed" in entry:
+            self.is_closed = entry["is_closed"]
+        else:
+            self.is_closed = None
         if entry["location"]["address1"] is None:
             self.address1 = None
         elif len(entry["location"]["address1"]) == 0:
@@ -91,12 +101,20 @@ class Business(Base):
         self.zip_code = entry["location"]["zip_code"]
         self.display_address = ", ".join(entry["location"]["display_address"])
         self.name = entry["name"]
-        self.phone = entry["phone"]
         self.rating = entry["rating"]
         if "price" in entry:
             self.price = entry["price"]
-        self.review_counts = entry["review_count"]
-        self.url = entry["url"]
+        else:
+            self.price = None
+        if "review_count" in entry:
+            self.review_counts = entry["review_count"]
+        else:
+            self.review_counts = 0
+        if "url" in entry:
+            self.url = entry["url"]
+        else:
+            self.url = None
+        self.source_db = ""
 
     def get_or_create(self, s: Session):
         row = s.query(Business).filter_by(id=self.id).first()

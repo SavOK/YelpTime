@@ -33,14 +33,33 @@ def generate_box():
     return box
 
 
+def test_request(r, warning_msq) -> bool:
+    if r.status_code != 200:
+        err_msg = json.dumps(r.json(), indent=1)
+        pprint(f"WARNING {warning_msq}", sys.stderr)
+        pprint(f"ERROR STATUS CODE {r.status_code}", sys.stderr)
+        pprint(err_msg, sys.stderr)
+        return False
+    D = r.json()
+    if "businesses" not in D:
+        pprint(f"WARNING {warning_msq}", sys.stderr)
+        pprint(f"ERROR STATUS CODE {r.status_code}", sys.stderr)
+        pprint(f"businesses not in data", sys.stderr)
+        return False
+    if "total" not in D:
+        pprint(f"WARNING {warning_msq}", sys.stderr)
+        pprint(f"ERROR STATUS CODE {r.status_code}", sys.stderr)
+        pprint(f"total not in data", sys.stderr)
+        return False
+    return True
+
+
 def get_requests_around_point_for_sub_category(
     latitude, longitude, Y: YelpAPI, category: List
 ):
+    time.sleep(1)
     r = Y.get_request(latitude, longitude, categories=",".join(category))
-    if r.status_code != 200:
-        err_msg = json.dumps(r.json(), indent=1)
-        pprint(f"SOMETHING WRONG {latitude} {longitude} {r.status_code}", sys.stderr)
-        pprint(err_msg, sys.stderr)
+    if not test_request(r, f" loc ({latitude} {longitude})"):
         return
     D = r.json()
     read = len(D["businesses"])
@@ -51,14 +70,9 @@ def get_requests_around_point_for_sub_category(
             r = Y.get_request(
                 latitude, longitude, categories=",".join(category), offset=read
             )
-            if r.status_code != 200:
-                err_msg = json.dumps(r.json(), indent=1)
-                pprint(
-                    f"SOMETHING WRONG {latitude} {longitude} {r.status_code}",
-                    sys.stderr,
-                )
-                pprint(f"offset {read}", sys.stderr)
-                pprint(err_msg, sys.stderr)
+            if not test_request(
+                r, f" loc ({latitude} {longitude}) offset {read}\n{','.join(category)}"
+            ):
                 return D
         else:
             r = Y.get_request(
@@ -68,14 +82,10 @@ def get_requests_around_point_for_sub_category(
                 offset=read,
                 limit=(1000 - read),
             )
-            if r.status_code != 200:
-                err_msg = json.dumps(r.json(), indent=1)
-                pprint(
-                    f"SOMETHING WRONG {latitude} {longitude} {r.status_code}",
-                    sys.stderr,
-                )
-                pprint(f"offset {read} limit {1000-read}", sys.stderr)
-                pprint(err_msg, sys.stderr)
+            if not test_request(
+                r,
+                f" loc ({latitude} {longitude}) offset {read} limit {1000-read}\n{','.join(category)}",
+            ):
                 return D
         curr_data = r.json()
         D["businesses"] += curr_data["businesses"]
@@ -91,12 +101,10 @@ def get_all_business_around_point(
     # first run
     time.sleep(1)
     r = Y.get_request(latitude, longitude)
-    if r.status_code != 200:
-        err_msg = json.dumps(r.json(), indent=1)
-        pprint(f"SOMETHING WRONG {latitude} {longitude} {r.status_code}", sys.stderr)
-        pprint(err_msg, sys.stderr)
-    if r.status_code == 429:
-        sys.exit()
+    if not test_request(r, f" loc ({latitude} {longitude})"):
+        if r.status_code == 429:
+            sys.exit()
+        return
 
     data = r.json()
     total = data["total"]
@@ -135,15 +143,16 @@ def add_data_to_table(in_data: Dict):
     for D in in_data["businesses"]:
         if D["coordinates"]["latitude"] is None:
             continue
-        buisness = Business(D)
-        buisness, isNewBus = buisness.get_or_create(s)
+        business = Business(D)
+        business.source_db = "Yelp_API"
+        business, isNewBus = business.get_or_create(s)
         for A in D["categories"]:
             category = Category(entry=A)
             category, isNewCat = category.get_or_create(s)
-            buisness.categories.append(category)
+            business.categories.append(category)
         location = Location(D["coordinates"]["latitude"], D["coordinates"]["longitude"])
         location, isNewLoc = location.get_or_create(s)
-        buisness.location = location
+        business.location = location
         s.commit()
     s.close()
 
@@ -151,9 +160,10 @@ def add_data_to_table(in_data: Dict):
 if __name__ == "__main__":
     Y = YelpAPI()
     Base.metadata.create_all(engine)
+
     box = generate_box()
     # test_point = (42.348484848484844, -71.15151515151516)
-    for ix, latitude in enumerate(box["S_TO_N"][3:10], start=3):
+    for ix, latitude in enumerate(box["S_TO_N"][42:45], start=42):
         for iy, longitude in enumerate(box["E_TO_W"]):
             print(f"proccesing point {ix} {iy} {latitude} {longitude}")
             data = get_all_business_around_point(latitude, longitude, Y)
