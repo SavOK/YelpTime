@@ -163,7 +163,7 @@ if __name__ == "__main__":
 
     box = generate_box()
     # test_point = (42.348484848484844, -71.15151515151516)
-    for ix, latitude in enumerate(box["S_TO_N"][42:45], start=42):
+    for ix, latitude in enumerate(box["S_TO_N"][45:60], start=45):
         for iy, longitude in enumerate(box["E_TO_W"]):
             print(f"proccesing point {ix} {iy} {latitude} {longitude}")
             data = get_all_business_around_point(latitude, longitude, Y)

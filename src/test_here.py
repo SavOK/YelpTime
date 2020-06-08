@@ -62,11 +62,15 @@ def get_data(point):
     r = HA.get_isoline(point[0], point[1])
     isoline = ",".join(get_isoline_generator(r))
     q = query_points_within(isoline, s)
+    # return q
+    # Q = get_data((40.8014, -73.9501))
     loc_list = list(generate_dict_from_query(q))
 
     r_m = HA.get_route_matrix(loc_list, point)
 
     dist_mat = r_m.json()
+    # if 'response' not in dist_mat:
+    #     return None
     mat_list = sorted(
         [x for x in dist_mat["response"]["matrixEntry"] if x["destinationIndex"] == 0],
         key=itemgetter("startIndex"),
