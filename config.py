@@ -1,4 +1,4 @@
-ENV = "DEV"
+ENV = "BUS"
 HOME_LOC = "/home/saveliy"
 PROJECT_LOC = HOME_LOC + "/YelpTime"
 SRC_LOC = PROJECT_LOC + "/src"

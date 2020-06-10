@@ -165,7 +165,7 @@ app.layout = html.Div(
                                 id="result-map",
                                 style={
                                     "width": "100%",
-                                    "height": "50vh",
+                                    "height": "100vh",
                                     "margin": "auto",
                                     "display": "block",
                                 },
