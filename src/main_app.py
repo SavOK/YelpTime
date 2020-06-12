@@ -16,9 +16,8 @@ from plotly import graph_objs as go
 import plotly.offline as pyo
 
 import config
-from test_here import get_data
 
-from help_functions_app import get_categries_list
+import help_functions_app as hfa
 
 app = dash.Dash(
     __name__, meta_tags=[{"name": "viewport", "content": "width=device-width"}]
@@ -34,15 +33,19 @@ start_point = (42.355, -71.07)
 data = pd.read_csv("./test.csv")
 
 
-def make_dash_table(df):
+def make_dash_table(df: pd.DataFrame):
     """ Return a dash defintion of an HTML table from a Pandas dataframe. """
-    df_to_show = df[["name", "address", "travelTime", "routeDistance"]].rename(
-        columns={
-            "name": "Name",
-            "address": "Address",
-            "travelTime": "Travel Time",
-            "routeDistance": "Route Distance",
-        }
+    df_to_show = (
+        df[["name", "address_display", "travel", "distance"]]
+        .rename(
+            columns={
+                "name": "Name",
+                "address_display": "Address",
+                "travel": "Travel Time",
+                "distance": "Route Distance",
+            }
+        )
+        .sort_values(by=["Travel Time"])
     )
     table = dash_table.DataTable(
         id="formated-table",
@@ -104,8 +107,19 @@ app.layout = html.Div(
                             children=[
                                 # Dropdown for locations on map
                                 dcc.Dropdown(
+                                    id="list-state-dropdown",
+                                    options=hfa.get_list_of_states(),
+                                    placeholder="Select a state",
+                                )
+                            ],
+                        ),
+                        html.Div(
+                            className="div-for-dropdown",
+                            children=[
+                                # Dropdown for locations on map
+                                dcc.Dropdown(
                                     id="business-type-dropdown",
-                                    options=get_categries_list(),
+                                    options=hfa.get_categories_list(),
                                     placeholder="Select a business type",
                                 )
                             ],
@@ -161,7 +175,11 @@ app.layout = html.Div(
                     children=[
                         dl.Map(
                             dl.Map(
-                                [dl.TileLayer(), dl.LayerGroup(id="my-position")],
+                                [
+                                    dl.TileLayer(),
+                                    dl.LayerGroup(id="my-position"),
+                                    dl.LayerGroup(id="places-markers"),
+                                ],
                                 id="result-map",
                                 style={
                                     "width": "100%",
@@ -170,7 +188,7 @@ app.layout = html.Div(
                                     "display": "block",
                                 },
                                 center=start_point,
-                                zoom=13,
+                                zoom=10,
                             ),
                         ),
                         html.Div(
@@ -187,20 +205,58 @@ app.layout = html.Div(
 )
 
 
+@app.callback([Output("result-map", "center")], [Input("list-state-dropdown", "value")])
+def move_to_state(value):
+    if value is None:
+        raise PreventUpdate
+    state_dict = hfa.get_state_coord_dict()
+    return [state_dict[value]]
+
+
 @app.callback(
-    [Output("result-table", "children"), Output("my-position", 'children')],
-    [Input("result-map", "click_lat_lng")],
+    [
+        Output("result-table", "children"),
+        Output("my-position", "children"),
+        Output("places-markers", "children"),
+    ],
+    [
+        Input("result-map", "click_lat_lng"),
+        Input("business-type-dropdown", "value"),
+        Input("transportation-type-dropdown", "value"),
+        Input("time-limit-slider", "value"),
+    ],
 )
-def map_click(click_lat_lng):
+def map_click(click_lat_lng, business_type, transportation_type, time_limit):
     if click_lat_lng is None:
         raise PreventUpdate
+    if business_type is None:
+        raise PreventUpdate
+    if transportation_type is None:
+        raise PreventUpdate
+    if time_limit is None:
+        raise PreventUpdate
 
-    df = get_data(click_lat_lng)
+    time_limit = time_limit * 60
+    print(click_lat_lng, time_limit, transportation_type, business_type)
+    df = hfa.get_data_around_point(
+        click_lat_lng, time_limit, transportation_type, business_type
+    )
+    if df is None:
+        raise PreventUpdate
     table = make_dash_table(df)
     center_marker = [
         dl.Marker(position=click_lat_lng, children=dl.Tooltip("You are here"))
     ]
-    return table, center_marker
+    df = df.sort_values(by="travel")
+    markers = [
+        dl.Marker(
+            position=row[1][["latitude", "longitude"]].values,
+            children=dl.Tooltip(row[1]["name"]),
+        )
+        for row in df.iterrows()
+    ]
+
+    return table, center_marker, markers
 
 
 if __name__ == "__main__":

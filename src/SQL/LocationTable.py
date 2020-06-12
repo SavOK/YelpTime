@@ -24,9 +24,8 @@ class Location(Base):
         quote=False,
     )
     location = Column(Geometry("Point"), nullable=False, quote=False, name="location")
-    latitude = Column(psql.REAL, nullable=True, quote=False, name="latitude")
-    longitude = Column(psql.REAL, nullable=True, quote=False, name="longitude")
-
+    latitude = Column(psql.REAL, nullable=False, quote=False, name="latitude")
+    longitude = Column(psql.REAL, nullable=False, quote=False, name="longitude")
     __table_args__ = (PrimaryKeyConstraint("id", name="pk_location_id"),)
     businesses = relationship("Business", back_populates="location")
 

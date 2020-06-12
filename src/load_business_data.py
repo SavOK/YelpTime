@@ -4,11 +4,18 @@ import re
 import io
 from pprint import pprint
 import itertools as itts
+import string
+import random
 
 import boto3
 
 from SQL import Session, Base, engine
 from SQL import Business, NaicsDescription, Location
+
+
+def get_random_string(stringLength=8):
+    lettersAndDigits = string.ascii_letters + string.digits
+    return "".join((random.choice(lettersAndDigits) for i in range(stringLength)))
 
 
 def conver_to_entry(row, naics_dict):
@@ -107,7 +114,7 @@ def conver_to_entry(row, naics_dict):
 
     out_data = {}
     if len(row["COMPANY_NAME"]) != 0:
-        out_data["company_name"] = row["COMPANY_NAME"]
+        out_data["company_name"] = row["COMPANY_NAME"].strip()
     else:
         out_data["company_name"] = None
     if len(row["SIC_CODE"]) != 0:
@@ -115,7 +122,7 @@ def conver_to_entry(row, naics_dict):
     else:
         out_data["sic_code"] = None
     if len(row["SIC_DESCRIPTION"]) != 0:
-        out_data["sic_description"] = row["SIC_DESCRIPTION"]
+        out_data["sic_description"] = row["SIC_DESCRIPTION"].strip()
     else:
         out_data["sic_description"] = None
     if len(row["ADDRESS"]) != 0:
@@ -123,11 +130,11 @@ def conver_to_entry(row, naics_dict):
     else:
         out_data["address"] = None
     if len(row["CITY"]) != 0:
-        out_data["city"] = row["CITY"]
+        out_data["city"] = row["CITY"].strip()
     else:
         out_data["city"] = None
     if len(row["STATE"]) != 0:
-        out_data["state"] = row["STATE"]
+        out_data["state"] = row["STATE"].strip()
     else:
         out_data["state"] = None
     if len(row["ZIP"]) != 0:
@@ -156,6 +163,9 @@ def conver_to_entry(row, naics_dict):
         out_data["latitude"] = None
     if len(row["LONGITUDE"]) != 0:
         out_data["longitude"] = _to_float(row["LONGITUDE"])
+        if out_data["longitude"]:
+            if out_data["longitude"] > 0:
+                out_data["longitude"] = out_data["longitude"] * (-1)
     else:
         out_data["longitude"] = None
     out_data["employee_range"] = _get_emloyee_range(row)
@@ -165,17 +175,20 @@ def conver_to_entry(row, naics_dict):
     else:
         out_data["naics_number"] = None
     if len(row["INDUSTRY"]) > 0:
-        out_data["industry"] = row["INDUSTRY"].lower()
+        out_data["industry"] = row["INDUSTRY"].lower().strip()
     else:
         out_data["industry"] = None
 
     if out_data["zip_code"] is None or out_data["company_name"] is None:
         out_data["alias"] = None
     else:
+        add_str = get_random_string(10)
         out_data["alias"] = (
             out_data["company_name"].replace(" ", "_").lower()
             + "_"
             + out_data["zip_code"]
+            + "_"
+            + add_str
         )
     if out_data["naics_number"] is None and out_data["industry"] is None:
         return out_data
@@ -235,7 +248,7 @@ if __name__ == "__main__":
     Base.metadata.create_all(engine)
 
     s = Session()
-    for obj in itts.islice(MyBucket.objects.filter(Prefix=input_dir), 0, None):
+    for obj in itts.islice(MyBucket.objects.filter(Prefix=input_dir), 3, 10):
         if obj.key.endswith("/"):
             continue
         print(obj)
