@@ -1,30 +1,65 @@
 
-# YelpTime
+# Sales Time
 
 Insight Data Engineering Project  
 
 **IMPORTANT** Before doing anything need to setup `config.py`
 
-### Yelp data: get the list of business in Boston  
+## Problem
 
-#### Approach
-Run API search query to get a list of businesses around the point 
-* iterate over 20km by 20km grid with the step 250m
-* find all business around a point within 250m
-* *Problems*: 
-	* The distance yelp returns is approximation, number of businesses for each point varies from 0 to 4000.      
+### Data Source
+List of Licenced business comes from Data.gov
 
-Build SQL wrapper to store data in PostgreSQL
-* SQL Alchemy wrapper to interact with psql
-* **TODO**  include tables shema in description
-* Store location data in PostGIS
+**TODO** Insert data flow pickture
 
-### Get distance information from [here.com](https://developer.here.com/)  
-Run API to get POLYGON around the point of interest that could be reached in a time limit  
-Based on POLYGON get locations that are inside the polygon and of the type `pizza` (for now)  
-Run API to get the time and real road distance to the locations
-Sort businesses based on the estimated time to reach  
-**TODO** make location type an option
+### Approach
+* Process data with PySpark (clean and normolized) 
+* Store data in Postgres 
+* Use PostGIST to index spacial data (location)
+* Dash UI to interact with data
 
-### Make Dash interactive web app
-### Scale
+Cleaning Data 
+* Data saved at S3 as 94 csv files
+* remove row without location coordinates, address, or industry description (NAICS number)
+* if provided with number of employees broke number in bins (0-10, 10-100, 100-500, ...)
+* if provided with sales value broke number in binss (0-1000, 1000-10000, 100000-500000, ...)
+
+Storing Data
+**TODO** insert Database schema
+
+Calculating route time
+* Here API
+
+UI Dash app
+* options State, 
+* options business type
+* transprotation mode
+* time radius
+* map starting loction input
+
+### Project tree
++-- src
+|   +-- SQL
+|		+-- `__init__.py`
+|		+-- `base.py`
+|		+-- `BussinessTable.py`
+|		+-- `CategoryTabel.py`
+|		+-- `LocationTable.py`
+|		+-- `AssociationTables.py`
+|   +-- API
+|		+-- `base.py`
+|		+-- `BusinessTable.py`
+|		+-- `CategoryTable.py`
+|		+-- `LocationTable.py`
+|	+-- assets
+|   +-- `pyspark_clean_data.py`
+|   +-- `help_functions_app.py`
+|   +-- `main_app.py`
+|   +-- `config.py`
++-- data
++-- `README.md`
+
+
+### Done with help of 
+`sqlalchemy`
+

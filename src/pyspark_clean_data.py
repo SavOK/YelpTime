@@ -234,7 +234,9 @@ clean_df = (
 )
 # print(clean_df.count())
 # print(clean_df.filter(F.col("industry").isNotNull()).count())
-clean_df.write.mode("overwrite").csv("/home/ubuntu/YelpTime/data/spark_outputs/all.csv")
+save_df = clean_df.collect().write.mode("overwrite").csv(
+    "/home/ubuntu/YelpTime/data/spark_outputs/all.csv"
+)
 
 # clean_df.write.scv("/home/ubuntu/combine_table.csv")
 # save_df = (
