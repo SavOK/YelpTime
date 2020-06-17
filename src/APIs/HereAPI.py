@@ -1,6 +1,6 @@
 from pathlib import Path
 import json
-from typing import Dict
+from typing import Dict, List, Tuple
 
 import requests
 
@@ -100,22 +100,21 @@ class HereAPI:
         return params
 
     def get_route_matrix(
-        self, loc_list, point, transportModeType: str = "car", searchRange: int = 20000
+        self,
+        loc_list: List,
+        point: Tuple,
+        transportModeType: str = "car",
+        searchRange: int = 20000,
     ):
         params = self._set_params_distance(
             transportModeType=transportModeType, searchRange=searchRange
         )
         params.update(
             {
-                f"start{i}": f"geo!{el['latitude']},{el['longitude']}"
-                for i, el in enumerate(loc_list)
+                f"destination{i}": f"geo!{el['latitude']},{el['longitude']}"
+                for i, el in enumerate(loc_list[:100])
             }
         )
-        params.update(
-            {
-                f"destination{i[0]}": f"geo!{point[0]},{point[1]}"
-                for i in enumerate(loc_list)
-            }
-        )
+        params.update({"start0": f"geo!{point[0]},{point[1]}"})
         r = requests.get(url=self._route_url, params=params)
         return r

@@ -1,12 +1,12 @@
 from typing import Dict
 
-from sqlalchemy import Column
+
+from sqlalchemy import Column, Sequence
 from sqlalchemy import PrimaryKeyConstraint, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects import postgresql as psql
 
 from .base import Base, Session
-from .AssociationTables import map_businesses_categories
 
 
 class WrongEntryException(Exception):
@@ -24,100 +24,70 @@ class Business(Base):
     """
 
     __tablename__ = "businesses"
-    id = Column(psql.TEXT, nullable=False, quote=False, name="id")
-    business_alias = Column(
-        psql.TEXT, nullable=False, quote=False, name="business_alias"
+    id = Column(
+        psql.BIGINT,
+        Sequence("business_id_seq", metadata=Base.metadata),
+        nullable=False,
+        quote=False,
+        name="id",
     )
-    latitude = Column(psql.REAL, nullable=False, quote=False, name="latitude")
-    longitude = Column(psql.REAL, nullable=False, quote=False, name="longitude")
-    display_phone = Column(psql.TEXT, nullable=True, quote=False, name="display_phone")
-    image_url = Column(psql.TEXT, nullable=True, quote=False, name="image_url")
-    is_closed = Column(psql.BOOLEAN, nullable=True, quote=False, name="is_closed")
-    address1 = Column(psql.TEXT, nullable=True, quote=False, name="address1")
-    address2 = Column(psql.TEXT, nullable=True, quote=False, name="address2")
-    address3 = Column(psql.TEXT, nullable=True, quote=False, name="address3")
+    business_alias = Column(
+        psql.TEXT, nullable=False, quote=False, name="business_alias", index=True
+    )
+    business_name = Column(psql.TEXT, nullable=False, quote=False, name="business_name")
+    address = Column(psql.TEXT, nullable=True, quote=False, name="address")
     city = Column(psql.TEXT, nullable=False, quote=False, name="city")
-    country = Column(psql.TEXT, nullable=False, quote=False, name="country")
     state = Column(psql.TEXT, nullable=False, quote=False, name="state")
     zip_code = Column(psql.TEXT, nullable=False, quote=False, name="zip_code")
-    display_address = Column(
-        psql.TEXT, nullable=False, quote=False, name="display_address"
+    county = Column(psql.TEXT, nullable=True, quote=False, name="county")
+    phone = Column(psql.TEXT, nullable=True, quote=False, name="phone")
+    fax = Column(psql.TEXT, nullable=True, quote=False, name="fax")
+    website = Column(psql.TEXT, nullable=True, quote=False, name="website")
+    employee_range = Column(
+        psql.TEXT, nullable=True, quote=False, name="employee_range"
     )
-    name = Column(psql.TEXT, nullable=False, quote=False, name="name")
-    price = Column(psql.TEXT, nullable=True, quote=False, name="price")
-    rating = Column(psql.TEXT, nullable=True, quote=False, name="rating")
-    review_counts = Column(
-        psql.INTEGER, nullable=True, quote=False, name="review_counts", default=0
+    sales_volume_range = Column(
+        psql.TEXT, nullable=True, quote=False, name="sales_volume_range"
     )
-    url = Column(psql.TEXT, nullable=True, quote=False, name="url")
-    source_db = Column(psql.TEXT, nullable=True, quote=False, name="source_db")
 
     __table_args__ = (PrimaryKeyConstraint("id", name="pk_businesses"),)
 
-    categories = relationship(
-        "Category", secondary=map_businesses_categories, backref="businesses"
-    )
+    naics_code = Column(psql.INTEGER, ForeignKey("naics_descriptions.code"))
+    naics = relationship("NaicsDescription", back_populates="businesses")
     location_id = Column(psql.BIGINT, ForeignKey("locations.id"))
     location = relationship("Location", back_populates="businesses")
 
     def __init__(self, entry: Dict, **kwargs):
-        self.id = entry["id"]
         self.business_alias = entry["alias"]
-        self.latitude = float(entry["coordinates"]["latitude"])
-        self.longitude = float(entry["coordinates"]["longitude"])
-        if "display_phone" in entry:
-            self.display_phone = entry["display_phone"]
+        self.business_name = entry["company_name"]
+        self.address = entry["address"]
+        self.city = entry["city"]
+        self.state = entry["state"]
+        self.zip_code = entry["zip_code"]
+        self.county = entry["county"]
+        if "phone" in entry:
+            self.phone = entry["phone"]
         else:
-            self.display_phone = None
-        if "image_url" in entry:
-            self.image_url = entry["image_url"]
+            self.phone = None
+        if "fax" in entry:
+            self.fax = entry["fax"]
         else:
-            self.image_url = None
-        if "is_closed" in entry:
-            self.is_closed = entry["is_closed"]
+            self.fax = None
+        if "website" in entry:
+            self.website = entry["website"]
         else:
-            self.is_closed = None
-        if entry["location"]["address1"] is None:
-            self.address1 = None
-        elif len(entry["location"]["address1"]) == 0:
-            self.address1 = None
+            self.website = None
+        if "employee_range" in entry:
+            self.employee_range = entry["employee_range"]
         else:
-            self.address1 = entry["location"]["address1"]
-        if entry["location"]["address2"] is None:
-            self.address2 = None
-        elif len(entry["location"]["address2"]) == 0:
-            self.address2 = None
+            self.employee_range = None
+        if "sales_volume_range" in entry:
+            self.sales_volume_range = entry["sales_volume_range"]
         else:
-            self.address2 = entry["location"]["address2"]
-        if entry["location"]["address3"] is None:
-            self.address3 = None
-        elif len(entry["location"]["address3"]) == 0:
-            self.address3 = None
-        else:
-            self.address3 = entry["location"]["address3"]
-        self.city = entry["location"]["city"]
-        self.country = entry["location"]["country"]
-        self.state = entry["location"]["state"]
-        self.zip_code = entry["location"]["zip_code"]
-        self.display_address = ", ".join(entry["location"]["display_address"])
-        self.name = entry["name"]
-        self.rating = entry["rating"]
-        if "price" in entry:
-            self.price = entry["price"]
-        else:
-            self.price = None
-        if "review_count" in entry:
-            self.review_counts = entry["review_count"]
-        else:
-            self.review_counts = 0
-        if "url" in entry:
-            self.url = entry["url"]
-        else:
-            self.url = None
-        self.source_db = ""
+            self.sales_volume_range = None
 
     def get_or_create(self, s: Session):
-        row = s.query(Business).filter_by(id=self.id).first()
+        row = s.query(Business).filter_by(business_alias=self.business_alias).first()
         if row:
             return (row, False)
         s.add(self)

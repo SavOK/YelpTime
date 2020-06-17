@@ -24,16 +24,24 @@ class Location(Base):
         quote=False,
     )
     location = Column(Geometry("Point"), nullable=False, quote=False, name="location")
+    latitude = Column(psql.REAL, nullable=False, quote=False, name="latitude")
+    longitude = Column(psql.REAL, nullable=False, quote=False, name="longitude")
     __table_args__ = (PrimaryKeyConstraint("id", name="pk_location_id"),)
     businesses = relationship("Business", back_populates="location")
 
-    def __init__(self, latitude: float, longitude: float):
-        self.location = WKTElement("POINT({} {})".format(latitude, longitude))
+    def __init__(self, entry):
+        self.location = WKTElement(
+            "POINT({} {})".format(entry["latitude"], entry["longitude"])
+        )
+        self.latitude = entry["latitude"]
+        self.longitude = entry["longitude"]
 
     def get_or_create(self, s: Session) -> Tuple:
-        row = s.query(Location).filter(
-            functions.ST_Equals(Location.location, self.location,)
-        ).first()
+        row = (
+            s.query(Location)
+            .filter(functions.ST_Equals(Location.location, self.location,))
+            .first()
+        )
         if row:
             return (row, False)
         s.add(self)

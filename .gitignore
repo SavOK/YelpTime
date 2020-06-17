@@ -140,3 +140,7 @@ dmypy.json
 
 # postgres settings
 .configs/postgres.json 
+# test output files
+*.out
+*.err
+*.csv
