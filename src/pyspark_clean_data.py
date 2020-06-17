@@ -182,71 +182,68 @@ def _set_schema():
     return StructType(fields)
 
 
-category_dict = read_category_dict()
-columns_drop = [
-    "CONTACT_FIRSTNAME",
-    "CONTACT_LASTNAME",
-    "CONTACT_FULLNAME",
-    "CONTACT_GENDER",
-    "CONTACT_TITLE",
-    "CONTACT2_FIRSTNAME",
-    "CONTACT2_LASTNAME",
-    "CONTACT2_TITLE",
-    "CONTACT2_GENDER",
-    "SIC_CODE",
-    "SIC_DESCRIPTION",
-    "INDUSTRY",
-    "WEBSITE",
-]
+if __name__ == "__main__":
 
-ss = (
-    SparkSession.builder.appName("ReadAllData")
-    .config("spark.hadoop.fs.s3a.access.key", os.getenv("AWS_ACCESS_KEY_ID"))
-    .config("spark.hadoop.fs.s3a.secret.key", os.getenv("AWS_SECRET_ACCESS_KEY"))
-    .getOrCreate()
-)
-sqlContext = SQLContext(ss)
-dataframe = ss.read.csv(
-    "s3a://saveliy.de.project/All_US_STATES/*.csv",
-    encoding="windows-1252",
-    header=True,
-)
-# step 0 remove extra columns
-df = dataframe.repartition(12).drop(*columns_drop)
-# step 1 filter locations, company name, naics code
-df = (
-    df.filter(F.col("LATITUDE").isNotNull() & F.col("LONGITUDE").isNotNull())
-    .filter(
-        F.col("ZIP").isNotNull()
-        & F.col("STATE").isNotNull()
-        & F.col("STATE").isNotNull()
+    category_dict = read_category_dict()
+    columns_drop = [
+        "CONTACT_FIRSTNAME",
+        "CONTACT_LASTNAME",
+        "CONTACT_FULLNAME",
+        "CONTACT_GENDER",
+        "CONTACT_TITLE",
+        "CONTACT2_FIRSTNAME",
+        "CONTACT2_LASTNAME",
+        "CONTACT2_TITLE",
+        "CONTACT2_GENDER",
+        "SIC_CODE",
+        "SIC_DESCRIPTION",
+        "INDUSTRY",
+        "WEBSITE",
+    ]
+
+    ss = (
+        SparkSession.builder.appName("ReadAllData")
+        .config("spark.hadoop.fs.s3a.access.key", os.getenv("AWS_ACCESS_KEY_ID"))
+        .config("spark.hadoop.fs.s3a.secret.key", os.getenv("AWS_SECRET_ACCESS_KEY"))
+        .getOrCreate()
     )
-    .filter(F.col("COMPANY_NAME").isNotNull())
-    .filter(F.col("NAICS_NUMBER").isNotNull())
-)
-# step 2 clean data
-schema = _set_schema()
-rdd = df.rdd.map(lambda r: clean_line(r, naics_dict=category_dict))
-clean_df = (
-    sqlContext.createDataFrame(data=rdd, schema=schema)
-    .filter(F.col("industry").isNotNull())
-    .filter(F.col("latitude").isNotNull() & F.col("longitude").isNotNull())
-)
-# print(clean_df.count())
-# print(clean_df.filter(F.col("industry").isNotNull()).count())
-save_df = clean_df.collect().write.mode("overwrite").csv(
-    "/home/ubuntu/YelpTime/data/spark_outputs/all.csv"
-)
+    sqlContext = SQLContext(ss)
+    dataframe = ss.read.csv(
+        "s3a://saveliy.de.project/All_US_STATES/*.csv",
+        encoding="windows-1252",
+        header=True,
+    )
+    # step 0 remove extra columns
+    df = dataframe.repartition(18).drop(*columns_drop)
+    # step 1 filter locations, company name, naics code
+    df = (
+        df.filter(F.col("LATITUDE").isNotNull() & F.col("LONGITUDE").isNotNull())
+        .filter(
+            F.col("ZIP").isNotNull()
+            & F.col("STATE").isNotNull()
+            & F.col("STATE").isNotNull()
+        )
+        .filter(F.col("COMPANY_NAME").isNotNull())
+        .filter(F.col("NAICS_NUMBER").isNotNull())
+    )
+    # step 2 clean data
+    schema = _set_schema()
+    rdd = df.rdd.map(lambda r: clean_line(r, naics_dict=category_dict))
+    clean_df = (
+        sqlContext.createDataFrame(data=rdd, schema=schema)
+        .filter(F.col("industry").isNotNull())
+        .filter(F.col("latitude").isNotNull() & F.col("longitude").isNotNull())
+    )
 
-# clean_df.write.scv("/home/ubuntu/combine_table.csv")
-# save_df = (
-#     clean_df.write.format("jdbc")
-#     .option("url", "jdbc:postgresql://localhost:5432/business")
-#     .option("driver", "org.postgresql.Driver")
-#     .option("dbtable", "public.main_table")
-#     .option("user", "saveliy")
-#     .option("password", os.getenv("PSQL_BUSINESS_PSWD"))
-#     .mode("overwrite")
-# )
-# save_df.save()
-ss.stop()
+    # saving to postgres
+    save_df = (
+        clean_df.write.format("jdbc")
+        .option("url", "jdbc:postgresql://54.226.115.222:5432/business")
+        # .option("driver", "org.postgresql.Driver")
+        .option("dbtable", "public.main_table")
+        .option("user", "saveliy")
+        .option("password", os.getenv("PSQL_BUSINESS_PSWD"))
+        .mode("overwrite")
+    )
+    save_df.save()
+    ss.stop()
