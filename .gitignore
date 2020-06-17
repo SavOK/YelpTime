@@ -143,3 +143,4 @@ dmypy.json
 # test output files
 *.out
 *.err
+*.csv
