@@ -31,6 +31,7 @@ def get_categories_list(InFile: Path = None) -> List[Dict]:
         category_dict = {}
         with open(InFile, newline="", encoding="utf-8-sig") as oF:
             reader = csv.reader(oF)
+            header = next(reader)
             for line in reader:
                 category_dict[int(line[0])] = line[1].strip()
         return category_dict
@@ -60,21 +61,18 @@ def get_isoline(centerPoint, rangePar, transportMode) -> str:
 
 def convert_to_dict(row):
     return {
-        "name": row.business_name,
-        "address_display": f"{row.address}, {row.city} {row.state}, {row.zip_code}",
-        "street": row.address,
-        "city": row.city,
-        "state": row.state,
-        "zip": row.zip_code,
-        "latitude": row.location.latitude,
-        "longitude": row.location.longitude,
+        "name": row[0],
+        "address_display": f"{row[1]}, {row[2]} {row[3]}, {row[4]}",
+        # "street": row.address,
+        # "city": row.city,
+        # "state": row.state,
+        # "zip": row.zip_code,
+        "latitude": row[5],
+        "longitude": row[6],
     }
 
 
 def read_query(q):
-    if q.filter(q.exists()).first() is None:
-        return None
-
     for el in itts.islice(q, 0, None):
         yield convert_to_dict(el)
 
@@ -83,19 +81,29 @@ def get_data_around_point(centerPoint, rangePar, transportMode, busnessType):
     isoline = get_isoline(centerPoint, rangePar, transportMode)
     poligon = f"POLYGON(({isoline}))"
     s = Session()
-    q = (
-        s.query(Business)
-        .join(Location, Business.location_id == Location.id)
-        .filter(Business.naics_code == busnessType)
-        .filter(ST_Within(Location.location, poligon))
-        .filter(Business.address != "None")
+    c = s.connection()
+    stm = """
+    WITH X AS (
+        SELECT id, latitude, longitude
+        FROM locations as a
+        WHERE ST_Within(a.location, 'POLYGON(({}))')
+        )
+    SELECT B.business_name, B.address, B.city, B.state, B.zip_code,
+    X.latitude, X.longitude
+    FROM X, businesses as B
+    WHERE X.id = B.location_id
+    AND B.naics_code={};
+    """.format(
+        isoline, busnessType
     )
-    data = list(read_query(q))[:100]
+    r = c.execute(stm)
+    data = list(read_query(r))[:100]
+    s.close()
+
     if len(data) == 0:
         print(f"Nothing found around {centerPoint}")
         return
 
-    s.close()
     HA = HereAPI()
     if transportMode == "car":
         rangeSear = rangePar * 200
@@ -129,14 +137,7 @@ def get_data_around_point(centerPoint, rangePar, transportMode, busnessType):
     return pd.DataFrame(data)
 
 
-df = get_data_around_point([33.50919623713959, -86.84928244609489], 900, "car", 722511)
-
-
-def get_list_of_states():
-    s = Session()
-    q = s.query(distinct(Business.state))
-    state_list = [{"value": x[0], "label": x[0]} for x in q.all()]
-    return state_list
+# df = get_data_around_point([33.50919623713959, -86.84928244609489], 900, "car", 722511)
 
 
 def get_state_coord_dict():
@@ -145,4 +146,45 @@ def get_state_coord_dict():
         "AL": (33.507653, -86.809375),
         "AR": (34.738450, -92.281194),
         "AZ": (33.479755, -112.080412),
+        "CA": (37.713170, -121.925008),
+        "CO": (39.716258, -105.009264),
+        "CT": (41.748521, -72.679510),
+        "DC": (38.897345, -77.044744),
+        "DE": (39.713688, -75.542797),
+        "FL": (28.526044, -81.427583),
+        "GA": (32.840029, -83.656105),
+        "HI": (21.316393, -157.853710),
+        "IA": (41.582120, -93.574039),
+        "ID": (43.564172, -116.135502),
+        "IL": (40.503895, -88.987183),
+        "IN": (39.739573, -86.181439),
+        "KS": (38.824448, -97.624704),
+        "KY": (38.009101, -84.575379),
+        "LA": (30.272183, -92.053513),
+        "MA": (42.339085, -71.173171),
+        "MD": (39.269676, -76.636874),
+        "ME": (44.754408, -68.766797),
+        "MI": (42.749894, -83.497057),
+        "MN": (44.953774, -93.373187),
+        "MO": (38.924986, -92.300594),
+        "MS": (32.371442, -90.136782),
+        "MT": (45.760004, -111.165712),
+        "NC": (35.305659, -80.789104),
+        "ND": (46.800341, -100.731545),
+        "NE": (40.842962, -96.763035),
+        "NH": (43.044909, -71.457311),
+        "NJ": (40.177446, -74.689891),
+        "NM": (35.155775, -106.555892),
+        "NV": (36.245775, -115.198838),
+        "NY": (42.641542, -73.761615),
+        "OH": (40.008934, -82.934764),
+        "OK": (35.343917, -97.418445),
+        "OR": (44.915568, -122.977644),
+        "PA": (40.371835, -76.978961),
     }
+
+
+def get_list_of_states():
+    state_dict = get_state_coord_dict()
+    state_list = [{"value": x, "label": x} for x in state_dict.keys()]
+    return sorted(state_list, key=itemgetter("value"))

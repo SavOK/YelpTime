@@ -97,31 +97,30 @@ app.layout = html.Div(
                 html.Div(
                     className="four columns div-user-controls",
                     children=[
-                        html.H2("DASH - Yelp Time"),
-                        html.P(
-                            """Select location on map. 
-                            Select business type and transportation type in dropdown menu"""
-                        ),
+                        html.H2("DASH - Sales Time"),
+                        html.P("""Select location on map"""),
                         html.Div(
                             className="div-for-dropdown",
                             children=[
+                                html.P("""Select state"""),
                                 # Dropdown for locations on map
                                 dcc.Dropdown(
                                     id="list-state-dropdown",
                                     options=hfa.get_list_of_states(),
                                     placeholder="Select a state",
-                                )
+                                ),
                             ],
                         ),
                         html.Div(
                             className="div-for-dropdown",
                             children=[
+                                html.P("""Select business type"""),
                                 # Dropdown for locations on map
                                 dcc.Dropdown(
                                     id="business-type-dropdown",
                                     options=hfa.get_categories_list(),
                                     placeholder="Select a business type",
-                                )
+                                ),
                             ],
                         ),
                         # Change to side-by-side for mobile layout
@@ -131,6 +130,7 @@ app.layout = html.Div(
                                 html.Div(
                                     className="div-for-dropdown",
                                     children=[
+                                        html.P("""Select transportation type"""),
                                         # Dropdown for locations on map
                                         dcc.Dropdown(
                                             id="transportation-type-dropdown",
@@ -142,7 +142,7 @@ app.layout = html.Div(
                                                 {"label": "Driving", "value": "car"},
                                             ],
                                             placeholder="Select a transportation type",
-                                        )
+                                        ),
                                     ],
                                 ),
                                 html.Div(
