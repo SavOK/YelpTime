@@ -3,8 +3,9 @@ import itertools as itts
 import os
 import time
 import json
+import csv
 import re
-from typing import List
+from typing import List, Dict
 
 from pyspark.sql import SparkSession, Row, SQLContext
 from pyspark.context import SparkContext
@@ -15,14 +16,17 @@ from pyspark.sql.types import StringType, IntegerType, FloatType
 import config
 
 
-def read_category_dict():
+def read_category_dict() -> Dict:
     out_dict = {}
     with open(
-        Path(config.DATA_LOC) / "6-digit_2017_Codes.csv", encoding="utf-8-sig"
+        Path(config.DATA_LOC) / "6-digit_2017_Codes.csv",
+        encoding="utf-8-sig",
+        newline="",
     ) as oF:
-        header = [x.strip() for x in next(oF).split(",")][:2]
-        for line in oF:
-            curr_line = [x.strip() for x in line.split(",")][:2]
+        reader = csv.reader(oF)
+        header = [x.strip() for x in next(reader)[:2]]
+        for line in reader:
+            curr_line = [x.strip() for x in line[:2]]
             out_dict[curr_line[0]] = {k: v for k, v in zip(header, curr_line)}
             out_dict[curr_line[0]]["alias"] = curr_line[1].lower().replace(" ", "_")
     return out_dict
@@ -124,18 +128,23 @@ def clean_line(row, naics_dict):
 
     row_dict = row.asDict()
     out_dict = {}
-    out_dict["name"] = row_dict["COMPANY_NAME"].strip()
-    out_dict["name_alias"] = row_dict["COMPANY_NAME"].strip().lower().replace(" ", "_")
+    name_str = row_dict["COMPANY_NAME"].lower().replace('"', "").strip()
+    out_dict["name"] = " ".join(x.capitalize() for x in name_str.split())
+    out_dict["name_alias"] = name_str.replace(" ", "_")
 
     if row_dict["ADDRESS"] is not None:
-        out_dict["address"] = row_dict["ADDRESS"].strip()
+        out_dict["address"] = row_dict["ADDRESS"].replace('"', "").strip()
     else:
         out_dict["address"] = None
-    out_dict["city"] = row_dict["CITY"].strip()
-    out_dict["state"] = row_dict["STATE"].strip()
-    out_dict["zip_code"] = row_dict["ZIP"].strip()
+    out_dict["city"] = " ".join(
+        x.capitalize().strip() for x in row_dict["CITY"].replace('"', "").split()
+    )
+    out_dict["state"] = row_dict["STATE"].replace('"', "").strip()
+    out_dict["zip_code"] = row_dict["ZIP"].replace('"', "").strip()
     if row_dict["COUNTY"] is not None:
-        out_dict["county"] = row_dict["COUNTY"]
+        out_dict["county"] = " ".join(
+            x.strip().capitalize() for x in row_dict["COUNTY"].replace('"', "").split()
+        )
     else:
         out_dict["county"] = None
     if row_dict["PHONE"] is not None:
@@ -147,8 +156,8 @@ def clean_line(row, naics_dict):
     else:
         out_dict["fax"] = None
 
-    out_dict["latitude"] = _to_float(row_dict["LATITUDE"])
-    out_dict["longitude"] = _to_float(row_dict["LONGITUDE"])
+    out_dict["latitude"] = _to_float(row_dict["LATITUDE"].replace('"', ""))
+    out_dict["longitude"] = _to_float(row_dict["LONGITUDE"].replace('"', ""))
     if (out_dict["longitude"] is not None) and (out_dict["longitude"] > 0):
         out_dict["longitude"] = out_dict["longitude"] * (-1)
     out_dict["employee_number"] = _get_emloyee_value(row_dict)
@@ -200,11 +209,20 @@ if __name__ == "__main__":
         "INDUSTRY",
         "WEBSITE",
     ]
+    # create session
 
     ss = (
         SparkSession.builder.appName("ReadAllData")
         .config("spark.hadoop.fs.s3a.access.key", os.getenv("AWS_ACCESS_KEY_ID"))
         .config("spark.hadoop.fs.s3a.secret.key", os.getenv("AWS_SECRET_ACCESS_KEY"))
+        .config("spark.executor.memory", "6G")  # memory per executer
+        .config(
+            "spark.driver.extraClassPath", os.getenv("HOME") + "/postgresql-42.2.14.jar"
+        )
+        .config(
+            "spark.jars.packages",
+            "com.amazonaws:aws-java-sdk:1.7.4,org.apache.hadoop:hadoop-aws:2.7.7",
+        )
         .getOrCreate()
     )
     sqlContext = SQLContext(ss)
@@ -214,7 +232,7 @@ if __name__ == "__main__":
         header=True,
     )
     # step 0 remove extra columns
-    df = dataframe.repartition(18).drop(*columns_drop)
+    df = dataframe.repartition("STATE").drop(*columns_drop)
     # step 1 filter locations, company name, naics code
     df = (
         df.filter(F.col("LATITUDE").isNotNull() & F.col("LONGITUDE").isNotNull())
@@ -234,16 +252,18 @@ if __name__ == "__main__":
         .filter(F.col("industry").isNotNull())
         .filter(F.col("latitude").isNotNull() & F.col("longitude").isNotNull())
     )
+    num_lines = clean_df.count()
 
     # saving to postgres
     save_df = (
         clean_df.write.format("jdbc")
         .option("url", "jdbc:postgresql://54.226.115.222:5432/business")
-        # .option("driver", "org.postgresql.Driver")
+        .option("driver", "org.postgresql.Driver")
         .option("dbtable", "public.main_table")
         .option("user", "saveliy")
         .option("password", os.getenv("PSQL_BUSINESS_PSWD"))
         .mode("overwrite")
     )
     save_df.save()
+    print(f"Done loading {num_lines}")
     ss.stop()
