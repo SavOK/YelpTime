@@ -33,19 +33,19 @@ Calculating route time
 UI Dash app
 * options State, 
 * options business type
-* transprotation mode
+* transportation mode
 * time radius
 * starting location
 
 ### Requirements
-`boto3`== 1.13.25,
-`dash`==1.12.0,
-`GeoAlchemy2`==0.8.3,
-`gunicorn`==20.0.4, 
-`pandas`==1.0.4,
-`psycopg2-binary`==2.8.5, 
-`requests`==2.20.1, 
-`SQLAlchemy`==1.3.17
+`boto3`, 
+`dash`, 
+`GeoAlchemy2`, 
+`gunicorn`,
+`pandas`, 
+`psycopg2-binary`,
+`requests`,
+`SQLAlchemy`
 ### Project tree
 ./  
 ├── `LICENSE`  
