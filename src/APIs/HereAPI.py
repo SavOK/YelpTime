@@ -1,3 +1,7 @@
+"""
+Class interacts with Here.API
+"""
+
 from pathlib import Path
 import json
 from typing import Dict, List, Tuple
@@ -9,6 +13,11 @@ import config
 
 class HereAuth:
     def __init__(self, MAIN_LOC: Path = Path(config.PROJECT_LOC)):
+        """
+        Generate key and id to interact with HERE API
+        Args:
+            MAIN_LOC (Path, optional): Location of the file with keys. Defaults to Path(config.PROJECT_LOC). 
+        """
         self._main_loc = MAIN_LOC
         self._data = self._keys_data()
 
@@ -36,6 +45,11 @@ class HereAPI:
     _route_url = "https://matrix.route.ls.hereapi.com/routing/7.2/calculatematrix.json"
 
     def __init__(self, DATA_LOC=Path(config.DATA_LOC)):
+        """
+        Responce functions to interact with Here.API
+        Args:
+            DATA_LOC ([type], optional):  Defaults to Path(config.DATA_LOC).
+        """
         self._data_loc = DATA_LOC
 
     def _set_params_isoline(
@@ -60,6 +74,7 @@ class HereAPI:
             "range": rangePar,
             "rangeType": rangeType,
             "mode": mode,
+            # "maxPoints": 50,
         }
         return params
 
@@ -71,6 +86,17 @@ class HereAPI:
         rangeType: str = "time",
         transportModeType: str = "car",
     ) -> requests.models.Response:
+        """ 
+        Get isoline, peremitter around point reachable in specified time
+        Args:
+            latitude (float): latitude of the point
+            longitude (float): longitude of the point
+            rangePar (int, optional): time limit in seconds or distance in meters. Defaults to 300.
+            rangeType (str, optional): range limit type time|distance. Defaults to "time".
+            transportModeType (str, optional): transportation type car|pedestrian. Defaults to "car".
+        Returns:
+            requests.models.Response: return response 
+        """
         params = self._set_params_isoline(
             latitude=latitude,
             longitude=longitude,
@@ -105,7 +131,17 @@ class HereAPI:
         point: Tuple,
         transportModeType: str = "car",
         searchRange: int = 20000,
-    ):
+    ) -> requests.models.Response:
+        """
+        Get distance matrix request from point 
+        Args:
+            loc_list (List): List of the locations (len <= 100)
+            point (Tuple): Center point
+            transportModeType (str, optional): Mode of transportation. Defaults to "car".
+            searchRange (int, optional): Search limit. Defaults to 20000.
+        Returns:
+            requests.models.Response: response 
+        """
         params = self._set_params_distance(
             transportModeType=transportModeType, searchRange=searchRange
         )

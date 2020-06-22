@@ -1,9 +1,13 @@
+"""
+Help function for the app
+Get list of states, 
+Get DataFrame of the businesses around point 
+"""
 import json, csv
 from pathlib import Path
 import itertools as itts
 from operator import itemgetter
-from pprint import pprint
-from typing import List, Dict
+from typing import List, Dict, Tuple
 
 import requests
 import pandas as pd
@@ -16,7 +20,7 @@ import config
 
 from APIs import HereAuth, HereAPI
 from SQL import Session
-from SQL import Business, Location, NaicsDescription
+from SQL import MainTable
 
 
 def get_categories_list(InFile: Path = None) -> List[Dict]:
@@ -25,7 +29,7 @@ def get_categories_list(InFile: Path = None) -> List[Dict]:
         List[Dict]: list of categories
     """
 
-    def get_category_dict(InFile: Path = InFile):
+    def _get_category_dict(InFile: Path = InFile):
         if InFile is None:
             InFile = Path(config.DATA_LOC) / "6-digit_2017_Codes.csv"
         category_dict = {}
@@ -36,12 +40,21 @@ def get_categories_list(InFile: Path = None) -> List[Dict]:
                 category_dict[int(line[0])] = line[1].strip()
         return category_dict
 
-    category_dict = get_category_dict()
+    category_dict = _get_category_dict()
     category_list = [{"label": V, "value": K} for K, V in category_dict.items()]
     return category_list
 
 
-def get_isoline(centerPoint, rangePar, transportMode) -> str:
+def get_isoline(centerPoint: Tuple, rangePar: int, transportMode: str) -> str:
+    """
+    Get isoline string polygram around point with range limit
+    Args:
+        centerPoint (Tuple): Center point 
+        rangePar (int): Range limit 
+        transportMode (str): Transportation mode
+    Returns:
+        str: Isoline String for sql query
+    """
     HA = HereAPI()
     r = HA.get_isoline(
         latitude=centerPoint[0],
@@ -55,49 +68,55 @@ def get_isoline(centerPoint, rangePar, transportMode) -> str:
         pprint(l)
     data = r.json()
     isoline = data["response"]["isoline"][0]["component"][0]["shape"]
-    out_str = ",".join(el.replace(",", "") for el in isoline)
+    out_str = ",".join(el.replace(",", " ") for el in isoline)
     return out_str
 
 
-def convert_to_dict(row):
-    return {
-        "name": row[0],
-        "address_display": f"{row[1]}, {row[2]} {row[3]}, {row[4]}",
-        # "street": row.address,
-        # "city": row.city,
-        # "state": row.state,
-        # "zip": row.zip_code,
-        "latitude": row[5],
-        "longitude": row[6],
-    }
-
-
 def read_query(q):
+    """
+    Convert query results to dictionary
+    Args:
+        q [sqlalchemy.engine.result.ResultProxy]: SQL query resuts
+    """
+
+    def _convert_to_dict(row: Tuple) -> Dict:
+        return {
+            "name": row[0],
+            "address_display": f"{row[1]}, {row[2]} {row[3]}, {row[4]}",
+            "latitude": row[5],
+            "longitude": row[6],
+        }
+
     for el in itts.islice(q, 0, None):
-        yield convert_to_dict(el)
+        yield _convert_to_dict(el)
 
 
-def get_data_around_point(centerPoint, rangePar, transportMode, busnessType):
+def get_data_around_point(
+    centerPoint: Tuple, rangePar: int, transportMode: str, busnessType: str
+) -> pd.DataFrame:
+    """
+    Get DataFrame of the points around point within limit
+    """
     isoline = get_isoline(centerPoint, rangePar, transportMode)
-    poligon = f"POLYGON(({isoline}))"
     s = Session()
     c = s.connection()
     stm = """
-    WITH X AS (
-        SELECT id, latitude, longitude
-        FROM locations as a
-        WHERE ST_Within(a.location, 'POLYGON(({}))')
-        )
-    SELECT B.business_name, B.address, B.city, B.state, B.zip_code,
-    X.latitude, X.longitude
-    FROM X, businesses as B
-    WHERE X.id = B.location_id
-    AND B.naics_code={};
+    WITH SUBT AS (
+        SELECT *, ST_MakePoint(B.latitude, B.longitude) as Point 
+            FROM main_table AS B
+            WHERE B.naics_code='{0}'
+    )
+    SELECT B.name, B.address, B.city, B.state, B.zip_code, B.latitude, B.longitude
+        FROM SUBT AS B 
+        WHERE ST_Within(B.Point, 'POLYGON(({1}))')
+        ORDER BY
+            B.Point <-> 'POINT({2} {3})'
+        LIMIT 100;
     """.format(
-        isoline, busnessType
+        busnessType, isoline, centerPoint[0], centerPoint[1]
     )
     r = c.execute(stm)
-    data = list(read_query(r))[:100]
+    data = list(read_query(r))
     s.close()
 
     if len(data) == 0:
@@ -137,9 +156,7 @@ def get_data_around_point(centerPoint, rangePar, transportMode, busnessType):
     return pd.DataFrame(data)
 
 
-# df = get_data_around_point([33.50919623713959, -86.84928244609489], 900, "car", 722511)
-
-
+# df = get_data_around_point([33.50919623713959, -86.84928244609489], 60, "car", 722511)
 def get_state_coord_dict():
     return {
         "AK": (61.167624, -149.870273),
@@ -184,7 +201,11 @@ def get_state_coord_dict():
     }
 
 
-def get_list_of_states():
+def get_list_of_states() -> List[Dict]:
+    """Get list of states for 
+    Returns:
+       List[Dict]: List of States for dropdown 
+    """
     state_dict = get_state_coord_dict()
     state_list = [{"value": x, "label": x} for x in state_dict.keys()]
     return sorted(state_list, key=itemgetter("value"))
