@@ -7,35 +7,37 @@ Insight Data Engineering Project
 
 ## Problem
 
+### Data Flow
+![Data Flow][flow]
+
 ### Data Source
 List of Licensed business comes from Data.gov
 
-**TODO** Insert data flow picture
-
 ### Approach
 * Process data with PySpark (clean and normalized) 
-* Store data in Postgres 
+* Store data in Postgre 
 * Use PostGIST to index spacial data (location)
 * Dash UI to interact with data
 
 Cleaning Data 
-* Data saved at S3 as 94 csv files
-* remove row without location coordinates, address, or industry description (NAICS number)
-* if provided with number of employees, broke number in bins (0-10, 10-100, 100-500, ...)
-* if provided with sales value, broke number in bins (0-1000, 1000-10000, 100000-500000, ...)
+* Data saved at S3 as 51 csv files
+* Remove row without location coordinates, address, or industry description (NAICS number)
+* If provided with number of employees, broke number in bins (0-10, 10-100, 100-500, ...)
+* If provided with sales value, broke number in bins (0-1000, 1000-10000, 100000-500000, ...)
 
-Storing Data
-**TODO** insert Database schema
+Storing Data  
+* Clean and normalized data stored
+![Database schema][schema]
 
 Calculating route time
 * Here API
 
 UI Dash app
 * options State, 
-* options business type
-* transportation mode
-* time radius
-* starting location
+* options Business type
+* Transportation mode
+* Time radius
+* Starting location
 
 ### Requirements
 `boto3`, 
@@ -77,4 +79,5 @@ UI Dash app
 &emsp;├── `main_app.py`  
 &emsp;└── `pyspark_clean_data.py`  
 
-   
+[flow]: images/data_flow.png "Data Flow"
+[schema]:  ./images/schema.png "DB Schema"
