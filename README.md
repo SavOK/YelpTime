@@ -1,44 +1,55 @@
 
 # Sales Time
+**Insight Data Engineering Project**
 
-Insight Data Engineering Project  
+The idea is to provide recommendations to door-to-door sales which potential customer to visit next. Given the stringent time-limit, the sales person would want to know the customer fastest to reach. The app suggests next location to visit based on mode of transportation and real-time road conditions 
 
-**IMPORTANT** Before doing anything need to setup `config.py`
 
-## Problem
+### Table of Contents
+**[Data Flow](#data-flow)**<br/>
+**[Data Source](#data-source)**<br/>
+**[Approach](#approach)**<br/>
+* **[Cleaning Data](#cleaning-data)**</br>
+* **[Storing Data](#storing-data)**</br>
+* **[Calculating Route Time](#calculating-route-time)**</br>
+* **[UI Dash App](#ui-dash-app)**</br>
+  
+**[Installation and Usage](#installation-and-usage)**<br/>
 
-### Data Flow
+## Data Flow
 ![Data Flow][flow]
 
-### Data Source
+## Data Source
 List of Licensed business comes from Data.gov
 
-### Approach
-* Process data with PySpark (clean and normalized) 
-* Store data in Postgre 
+## Approach
+* Process data with PySpark (clean and normalize) 
+* Store data in Postgres 
 * Use PostGIST to index spacial data (location)
 * Dash UI to interact with data
 
-Cleaning Data 
+### Cleaning Data 
 * Data saved at S3 as 51 csv files
-* Remove row without location coordinates, address, or industry description (NAICS number)
+* Removed row without location coordinates, address, or industry description (NAICS number)
 * If provided with number of employees, broke number in bins (0-10, 10-100, 100-500, ...)
 * If provided with sales value, broke number in bins (0-1000, 1000-10000, 100000-500000, ...)
 
-Storing Data  
-* Clean and normalized data stored
+### Storing Data  
+* Cleaned and normalized data stored
 ![Database schema][schema]
 
-Calculating route time
+### Calculating Route Time
 * Here API
 
-UI Dash app
-* options State, 
+### UI Dash App
+* options State 
 * options Business type
 * Transportation mode
 * Time radius
 * Starting location
 
+## Installation and Usage
+**IMPORTANT** Before doing anything need to setup `config.py`
 ### Requirements
 `boto3`, 
 `dash`, 
